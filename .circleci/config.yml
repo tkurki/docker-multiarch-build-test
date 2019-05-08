@@ -1,0 +1,25 @@
+version: 2
+jobs:
+  build:
+    machine:
+      image: circleci/classic:201808-01
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run: docker info
+      - run: docker run --privileged linuxkit/binfmt:v0.6
+      - run: echo $DOCKER_PASSWORD |  docker login -u $DOCKER_USERNAME --password-stdin
+      - run: docker build . -t $REGISTRY_USER/multiarch-test:arm32v6 --build-arg BASE=arm32v6
+      - run: docker push $REGISTRY_USER/multiarch-test:arm32v6
+      - run: docker build . -t $REGISTRY_USER/multiarch-test:amd64 --build-arg BASE=amd64
+      - run: docker push $REGISTRY_USER/multiarch-test:amd64
+      - run: docker run -it --rm $REGISTRY_USER/multiarch-test:arm32v6
+      - run: docker inspect $REGISTRY_USER/multiarch-test:arm32v6 | grep Architecture
+      - run: docker run -it --rm $REGISTRY_USER/multiarch-test:amd64
+      - run: docker inspect $REGISTRY_USER/multiarch-test:amd64 | grep Architecture
+      - run: >
+          docker run --rm --env DOCKER_CLI_EXPERIMENTAL=enabled docker:18.09 sh -c 
+          "(echo $DOCKER_PASSWORD |  docker login -u $DOCKER_USERNAME --password-stdin) && 
+           docker manifest create $REGISTRY_USER/multiarch-test $REGISTRY_USER/multiarch-test:arm32v6 $REGISTRY_USER/multiarch-test:amd64 &&
+           docker manifest push $REGISTRY_USER/multiarch-test"
